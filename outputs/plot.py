@@ -63,15 +63,51 @@ if __name__ == "__main__":
     prs.add_argument("-f", nargs="+", required=True, help="Measures files\n")
     prs.add_argument("-l", nargs="+", default=None, help="File's legends\n")
     prs.add_argument("-t", type=str, default="", help="Plot title\n")
-    prs.add_argument("-yaxis", type=str, default="system_total_waiting_time", help="The column to plot.\n")
-    prs.add_argument("-xaxis", type=str, default="step", help="The x axis.\n")
+    prs.add_argument("-yaxis", type=str, default="system_total_co2_kg", help="The column to plot.\n") # system_total_waiting_time
+    prs.add_argument("-xaxis", type=str, default="step_h", help="The x axis.\n")
     prs.add_argument("-ma", type=int, default=1, help="Moving Average Window.\n")
     prs.add_argument("-sep", type=str, default=",", help="Values separator on file.\n")
-    prs.add_argument("-xlabel", type=str, default="Time step (seconds)", help="X axis label.\n")
-    prs.add_argument("-ylabel", type=str, default="Total waiting time (s)", help="Y axis label.\n")
+    prs.add_argument("-xlabel", type=str, default="Time step (hours)", help="X axis label.\n")
+    prs.add_argument("-ylabel", type=str, default="Total CO2 (kg)", help="Y axis label.\n") # Total waiting time (s)
     prs.add_argument("-output", type=str, default=None, help="PDF output filename.\n")
 
     args = prs.parse_args()
+    labels = cycle(args.l) if args.l is not None else cycle([str(i) for i in range(len(args.f))])
+
+    plt.figure()
+
+    # File reading and grouping
+    for file in args.f:
+        main_df = pd.DataFrame()
+        for f in glob.glob(file + "*"):
+            df = pd.read_csv(f, sep=args.sep)
+            if main_df.empty:
+                main_df = df
+            else:
+                main_df = pd.concat((main_df, df))
+
+        # Plot DataFrame
+        plot_df(main_df, xaxis=args.xaxis, yaxis=args.yaxis, label=next(labels), color=next(colors), ma=args.ma)
+
+    plt.title(args.t)
+    plt.ylabel(args.ylabel)
+    plt.xlabel(args.xlabel)
+    plt.ylim(bottom=0)
+
+    if args.output is not None:
+        plt.savefig(args.output + ".pdf", bbox_inches="tight")
+
+    plt.show()
+    
+    # Total waiting time
+    
+    colors = sns.color_palette("colorblind", 4)
+    dashes_styles = cycle(["-", "-.", "--", ":"])
+    sns.set_palette(colors)
+    colors = cycle(colors)
+    
+    args.yaxis = "system_total_waiting_time_h"
+    args.ylabel = "Total waiting time (hours)"
     labels = cycle(args.l) if args.l is not None else cycle([str(i) for i in range(len(args.f))])
 
     plt.figure()

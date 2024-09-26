@@ -1,6 +1,7 @@
 """This module contains the TrafficSignal class, which represents a traffic signal in the simulation."""
 import os
 import sys
+import math
 from typing import Callable, List, Union
 
 
@@ -43,6 +44,7 @@ class TrafficSignal:
 
     # Default min gap of SUMO (see https://sumo.dlr.de/docs/Simulation/Safety.html). Should this be parameterized?
     MIN_GAP = 2.5
+    PREV_VEH_IDS = []
 
     def __init__(
         self,
@@ -163,11 +165,17 @@ class TrafficSignal:
         """
         new_phase = int(new_phase)
         if self.green_phase == new_phase or self.time_since_last_phase_change < self.yellow_time + self.min_green:
+        # for max green
+        #if (self.green_phase == new_phase and self.time_since_last_phase_change < self.max_green + self.yellow_time) or self.time_since_last_phase_change < self.yellow_time + self.min_green:
             # self.sumo.trafficlight.setPhase(self.id, self.green_phase)
             self.sumo.trafficlight.setRedYellowGreenState(self.id, self.all_phases[self.green_phase].state)
             self.next_action_time = self.env.sim_step + self.delta_time
         else:
             # self.sumo.trafficlight.setPhase(self.id, self.yellow_dict[(self.green_phase, new_phase)])  # turns yellow
+            # for max green
+            #if self.green_phase == new_phase and self.time_since_last_phase_change > self.max_green + self.yellow_time:
+                #new_phase = int(not new_phase)
+
             self.sumo.trafficlight.setRedYellowGreenState(
                 self.id, self.all_phases[self.yellow_dict[(self.green_phase, new_phase)]].state
             )
@@ -199,13 +207,81 @@ class TrafficSignal:
         reward = self.last_measure - ts_wait
         self.last_measure = ts_wait
         return reward
+    
+    def _khm_reward(self):
+        veh_reward = self._khm_count_reward()
+        waiting_reward = self._khm_waiting_reward()
+        traffic_light_reward = self._khm_traffic_light_reward()
+
+        reward = veh_reward + waiting_reward + traffic_light_reward
+        return reward
+
+    def _khm_traffic_light_reward(self):
+        phase1 = 40
+        phase2 = 30
+
+        k = self.calc_optimal_k(5 * 5) # 5 delta (when worth on 10%) * 5 (random value)
+        
+        worth_delta = 0
+        if self.is_yellow == False:
+            spent = self.time_since_last_phase_change
+
+            if spent > phase1 + 5:
+                worth_delta = spent - phase1 + 5
+            elif spent < phase1 - 5:
+                worth_delta = phase1 - 5 - spent
+
+        reward = (1 - math.exp(-k * worth_delta))
+        return -reward
+
+    def _khm_count_reward(self):
+        # Скільки машин проїхало за період часу (додатня величина, від 0 до 1).
+        k = self.calc_optimal_k(int(11 / (5 + self.MIN_GAP) * 600 * 4 / 2))
+        # 11m/c, 5m veh length, 2.5m gap, 600c, 4 lanes, 2 it is a half
+
+        combined_list = []
+        for step in self.env.PASSED_INTERSECTION_VEHS:
+            combined_list += step["vehIDs"]
+        uniq_count = len(set(combined_list))
+        
+        reward = (1 - math.exp(-k * uniq_count))
+        return reward
+
+    def _khm_waiting_reward(self):
+        # Скільки машин очікує проїзду більше чим 15 сек (від’ємна величина, від 0 до -1) за 600с !!!
+        k = self.calc_optimal_k(4 * 5 * 10) # (4 lines * 5 vehs per line) per minute * 10 minutes
+        
+        combined_list = []
+        for step in self.env.WAITING_STEP_VEHS:
+            combined_list += step["vehIDs"]
+        uniq_count = len(set(combined_list))
+
+        reward = (1 - math.exp(-k * uniq_count))
+        return -reward
+
+    def _khm_waiting_reward_single(self):
+        # Скільки машин очікує проїзду більше чим 15 сек (від’ємна величина, від 0 до -1)
+        k = self.calc_optimal_k(8*5)
+        
+        veh_waiting_count = 0
+        for lane in self.lanes:
+            lane_veh_ids = self.sumo.lane.getLastStepVehicleIDs(lane)
+            lane_veh_waiting_count = sum(1 for veh_id in lane_veh_ids if self.sumo.vehicle.getWaitingTime(veh_id) > 15)
+            veh_waiting_count += lane_veh_waiting_count
+
+        reward = (1 - math.exp(-k * veh_waiting_count))
+        return -reward
+
+    def calc_optimal_k(self, x: int):
+        k = math.log(2) / x
+        return k
 
     def _observation_fn_default(self):
         phase_id = [1 if self.green_phase == i else 0 for i in range(self.num_green_phases)]  # one-hot encoding
         min_green = [0 if self.time_since_last_phase_change < self.min_green + self.yellow_time else 1]
         density = self.get_lanes_density()
         queue = self.get_lanes_queue()
-        observation = np.array(phase_id + min_green + density + queue, dtype=np.float32)
+        observation = np.array(phase_id + min_green + density + queue + queue, dtype=np.float32)
         return observation
 
     def get_accumulated_waiting_time_per_lane(self) -> List[float]:
@@ -271,7 +347,7 @@ class TrafficSignal:
         ]
         return [min(1, density) for density in lanes_density]
 
-    def get_lanes_queue(self) -> List[float]:
+    def get_lanes_queue_percent(self) -> List[float]:
         """Returns the queue [0,1] of the vehicles in the incoming lanes of the intersection.
 
         Obs: The queue is computed as the number of vehicles halting divided by the number of vehicles that could fit in the lane.
@@ -282,6 +358,42 @@ class TrafficSignal:
             for lane in self.lanes
         ]
         return [min(1, queue) for queue in lanes_queue]
+    
+    def get_lanes_waiting_time(self) -> List[float]:
+        # Сумарний час очікування всіх машин на кожній смузі
+
+        lanes_waiting_time = []
+        for lane in self.lanes:
+            lane_veh_ids = self.sumo.lane.getLastStepVehicleIDs(lane)
+            waiting_time = sum(self.sumo.vehicle.getWaitingTime(veh_id) for veh_id in lane_veh_ids)
+            lanes_waiting_time.append(waiting_time)
+
+        return lanes_waiting_time
+
+    def get_lanes_queue(self) -> List[float]:
+        """Скільки машин очікує на кожній смузі. Тобто черги (кількість для кожної смуги)"""
+        lanes_queue = [
+            self.sumo.lane.getLastStepHaltingNumber(lane)
+            for lane in self.lanes
+        ]
+        return [queue for queue in lanes_queue]
+    
+    def get_lanes_veh_appeared(self) -> List[int]:
+        """Скільки машин з’явилось по кожній смузі, з попереднього проміжку часу"""
+        
+        new_cars_per_lane = []
+        current_veh_ids = []
+
+        for lane in self.lanes:
+            current_lane_ids = self.sumo.lane.getLastStepVehicleIDs(lane)
+            new_cars = [car for car in current_lane_ids if car not in self.PREV_VEH_IDS]
+            current_veh_ids += new_cars
+            new_cars_per_lane.append(len(new_cars))
+
+        self.PREV_VEH_IDS.clear()
+        self.PREV_VEH_IDS += current_veh_ids
+        return new_cars_per_lane
+
 
     def get_total_queued(self) -> int:
         """Returns the total number of vehicles halting in the intersection."""
@@ -310,4 +422,5 @@ class TrafficSignal:
         "average-speed": _average_speed_reward,
         "queue": _queue_reward,
         "pressure": _pressure_reward,
+        "kmh": _khm_reward
     }

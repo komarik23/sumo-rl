@@ -90,15 +90,15 @@ class SumoEnvironment(gym.Env):
         max_depart_delay: int = -1,
         waiting_time_memory: int = 1000,
         time_to_teleport: int = -1,
-        delta_time: int = 5,
+        delta_time: int = 15,
         yellow_time: int = 2,
-        min_green: int = 5,
-        max_green: int = 50,
+        min_green: int = 15,
+        max_green: int = 60,
         single_agent: bool = False,
         reward_fn: Union[str, Callable, dict] = "diff-waiting-time",
         observation_class: ObservationFunction = DefaultObservationFunction,
         add_system_info: bool = True,
-        add_per_agent_info: bool = True,
+        add_per_agent_info: bool = False,
         sumo_seed: Union[str, int] = "random",
         fixed_ts: bool = False,
         sumo_warnings: bool = True,
@@ -236,13 +236,17 @@ class SumoEnvironment(gym.Env):
             self.sumo = traci.getConnection(self.label)
 
         if self.use_gui or self.render_mode is not None:
-            if "DEFAULT_VIEW" not in dir(traci.gui):  # traci.gui.DEFAULT_VIEW is not defined in libsumo
-                traci.gui.DEFAULT_VIEW = "View #0"
             self.sumo.gui.setSchema(traci.gui.DEFAULT_VIEW, "real world")
 
     def reset(self, seed: Optional[int] = None, **kwargs):
         """Reset the environment."""
         super().reset(seed=seed, **kwargs)
+
+        self.WAITING_STEP_VEHS = []
+        self.PASSED_INTERSECTION_VEHS = []
+        self.CO2_STEP = []
+        self.TOTAL_WAITING_TIME = 0
+        self.TOTAL_CO2 = 0
 
         if self.episode != 0:
             self.close()
@@ -297,6 +301,12 @@ class SumoEnvironment(gym.Env):
         """Return current simulation second on SUMO."""
         return self.sumo.simulation.getTime()
 
+    WAITING_STEP_VEHS = []
+    PASSED_INTERSECTION_VEHS = []
+    CO2_STEP = []
+    TOTAL_CO2 = 0
+    TOTAL_WAITING_TIME = 0
+
     def step(self, action: Union[dict, int]):
         """Apply the action(s) and then step the simulation for delta_time seconds.
 
@@ -322,7 +332,37 @@ class SumoEnvironment(gym.Env):
         if self.single_agent:
             return observations[self.ts_ids[0]], rewards[self.ts_ids[0]], terminated, truncated, info
         else:
-            return observations, rewards, dones, info
+            return observations, rewards, terminated, dones, info
+
+    def calc_co2(self):
+        total_vehs_co2 = [self.sumo.vehicle.getCO2Emission(veh_id) for veh_id in self.sumo.vehicle.getIDList()]
+        self.CO2_STEP.append({"step": self.sim_step, "co2": sum(total_vehs_co2)})
+        
+        if (len(self.CO2_STEP) > 15):
+            self.CO2_STEP.pop(0)
+
+    def calc_vehs_passed_intersection(self):
+        total_vehs_passed_intersection = []
+        for out_lane in self.traffic_signals[self.ts_ids[0]].out_lanes:
+            lane_veh_ids = self.sumo.lane.getLastStepVehicleIDs(out_lane)
+            total_vehs_passed_intersection += lane_veh_ids
+
+        self.PASSED_INTERSECTION_VEHS.append({"step": self.sim_step, "vehIDs": list(set(total_vehs_passed_intersection))})
+
+        if (len(self.PASSED_INTERSECTION_VEHS) > (600)):
+            self.PASSED_INTERSECTION_VEHS.pop(0)
+
+    def calc_waiting_vehs(self):
+        total_lane_veh_waiting = []
+        for lane in self.traffic_signals[self.ts_ids[0]].lanes:
+            lane_veh_ids = self.sumo.lane.getLastStepVehicleIDs(lane)
+            lane_veh_waiting = [veh_id for veh_id in lane_veh_ids if self.sumo.vehicle.getWaitingTime(veh_id) > 15]
+            total_lane_veh_waiting += lane_veh_waiting
+
+        self.WAITING_STEP_VEHS.append({"step": self.sim_step, "vehIDs": list(set(total_lane_veh_waiting))})
+
+        if (len(self.WAITING_STEP_VEHS) > (600)):
+            self.WAITING_STEP_VEHS.pop(0)
 
     def _run_steps(self):
         time_to_act = False
@@ -354,7 +394,7 @@ class SumoEnvironment(gym.Env):
         return dones
 
     def _compute_info(self):
-        info = {"step": self.sim_step}
+        info = {"step_s": self.sim_step, "step_h": self.sim_step / 3600}
         if self.add_system_info:
             info.update(self._get_system_info())
         if self.add_per_agent_info:
@@ -364,26 +404,15 @@ class SumoEnvironment(gym.Env):
 
     def _compute_observations(self):
         self.observations.update(
-            {
-                ts: self.traffic_signals[ts].compute_observation()
-                for ts in self.ts_ids
-                if self.traffic_signals[ts].time_to_act or self.fixed_ts
-            }
+            {ts: self.traffic_signals[ts].compute_observation() for ts in self.ts_ids if self.traffic_signals[ts].time_to_act or self.fixed_ts}
         )
-        return {
-            ts: self.observations[ts].copy()
-            for ts in self.observations.keys()
-            if self.traffic_signals[ts].time_to_act or self.fixed_ts
-        }
+        return {ts: self.observations[ts].copy() for ts in self.observations.keys() if self.traffic_signals[ts].time_to_act or self.fixed_ts}
 
     def _compute_rewards(self):
-        self.rewards.update(
-            {
-                ts: self.traffic_signals[ts].compute_reward()
-                for ts in self.ts_ids
-                if self.traffic_signals[ts].time_to_act or self.fixed_ts
-            }
-        )
+        if self.sim_step < 600 or self.sim_step % 15 == 0:
+            self.rewards.update(
+                {ts: self.traffic_signals[ts].compute_reward() for ts in self.ts_ids if self.traffic_signals[ts].time_to_act or self.fixed_ts}
+            )
         return {ts: self.rewards[ts] for ts in self.rewards.keys() if self.traffic_signals[ts].time_to_act or self.fixed_ts}
 
     @property
@@ -412,17 +441,27 @@ class SumoEnvironment(gym.Env):
 
     def _sumo_step(self):
         self.sumo.simulationStep()
+        self.calc_co2()
+        self.calc_vehs_passed_intersection()
+        self.calc_waiting_vehs()
 
     def _get_system_info(self):
         vehicles = self.sumo.vehicle.getIDList()
-        speeds = [self.sumo.vehicle.getSpeed(vehicle) for vehicle in vehicles]
         waiting_times = [self.sumo.vehicle.getWaitingTime(vehicle) for vehicle in vehicles]
+        waiting_time = sum(waiting_times)
+        self.TOTAL_WAITING_TIME += waiting_time
+        co2 = sum(step["co2"] / 1000 for step in self.CO2_STEP) # self.CO2_STEP in mg, co2 in grams
+        self.TOTAL_CO2 += co2
         return {
             # In SUMO, a vehicle is considered halting if its speed is below 0.1 m/s
-            "system_total_stopped": sum(int(speed < 0.1) for speed in speeds),
-            "system_total_waiting_time": sum(waiting_times),
-            "system_mean_waiting_time": 0.0 if len(vehicles) == 0 else np.mean(waiting_times),
-            "system_mean_speed": 0.0 if len(vehicles) == 0 else np.mean(speeds),
+            "system_waiting_time_s": waiting_time,
+            "system_waiting_time_h": waiting_time / 3600,
+            "system_total_waiting_time_s": self.TOTAL_WAITING_TIME,
+            "system_total_waiting_time_h": self.TOTAL_WAITING_TIME / 3600,
+            "system_co2_g": co2,
+            "system_co2_kg": co2 / 1000,
+            "system_total_co2_g": self.TOTAL_CO2,
+            "system_total_co2_kg": self.TOTAL_CO2 / 1000
         }
 
     def _get_per_agent_info(self):
@@ -517,7 +556,6 @@ class SumoEnvironmentPZ(AECEnv, EzPickle):
 
         self.seed()
         self.env = SumoEnvironment(**self._kwargs)
-        self.render_mode = self.env.render_mode
 
         self.agents = self.env.ts_ids
         self.possible_agents = self.env.ts_ids
@@ -593,16 +631,10 @@ class SumoEnvironmentPZ(AECEnv, EzPickle):
                 "It is currently {}".format(agent, self.action_spaces[agent].n, action)
             )
 
-        if not self.env.fixed_ts:
-            self.env._apply_actions({agent: action})
+        self.env._apply_actions({agent: action})
 
         if self._agent_selector.is_last():
-            if not self.env.fixed_ts:
-                self.env._run_steps()
-            else:
-                for _ in range(self.env.delta_time):
-                    self.env._sumo_step()
-
+            self.env._run_steps()
             self.env._compute_observations()
             self.rewards = self.env._compute_rewards()
             self.compute_info()

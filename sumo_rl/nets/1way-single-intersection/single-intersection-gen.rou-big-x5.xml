@@ -19,18 +19,18 @@
     <route id="route_ws" edges="w_t t_s"/>
     <!-- Vehicles, persons and containers (sorted by depart) -->
 	<!-- N -->
-    <flow id="flow_ne_0" begin="0.00" departLane="best" departPos="base" color="white" route="route_ne" end="10000.00" vehsPerHour="100"/>
-    <flow id="flow_ns_0" begin="0.00" departLane="best" departPos="base" color="white" route="route_ns" end="10000.00" vehsPerHour="800"/>
-    <flow id="flow_nw_0" begin="0.00" departLane="best" departPos="base" color="white" route="route_nw" end="10000.00" vehsPerHour="400"/>
-    <flow id="flow_se_0" begin="0.00" departLane="best" departPos="base" color="green" route="route_se" end="10000.00" vehsPerHour="160"/>
-    <flow id="flow_sn_0" begin="0.00" departLane="best" departPos="base" color="green" route="route_sn" end="10000.00" vehsPerHour="220"/>
-    <flow id="flow_sw_0" begin="0.00" departLane="best" departPos="base" color="green" route="route_sw" end="10000.00" vehsPerHour="30"/>
-    <flow id="flow_en_0" begin="0.00" departLane="best" departPos="base" color="blue" route="route_en" end="10000.00" vehsPerHour="160"/>
-    <flow id="flow_es_0" begin="0.00" departLane="best" departPos="base" color="blue" route="route_es" end="10000.00" vehsPerHour="30"/>
-    <flow id="flow_ew_0" begin="0.00" departLane="best" departPos="base" color="blue" route="route_ew" end="10000.00" vehsPerHour="220"/>
-    <flow id="flow_we_0" begin="0.00" departLane="best" departPos="base" route="route_we" end="10000.00" vehsPerHour="220"/>
-    <flow id="flow_wn_0" begin="0.00" departLane="best" departPos="base" route="route_wn" end="10000.00" vehsPerHour="30"/>
-    <flow id="flow_ws_0" begin="0.00" departLane="best" departPos="base" route="route_ws" end="10000.00" vehsPerHour="160"/>
+    <flow id="flow_ne_0" begin="0.00" departLane="best" departPos="base" color="white" route="route_ne" end="10000.00" vehsPerHour="50"/>
+    <flow id="flow_ns_0" begin="0.00" departLane="best" departPos="base" color="white" route="route_ns" end="10000.00" vehsPerHour="900"/>
+    <flow id="flow_nw_0" begin="0.00" departLane="best" departPos="base" color="white" route="route_nw" end="10000.00" vehsPerHour="500"/>
+    <flow id="flow_se_0" begin="0.00" departLane="best" departPos="base" color="green" route="route_se" end="10000.00" vehsPerHour="180"/>
+    <flow id="flow_sn_0" begin="0.00" departLane="best" departPos="base" color="green" route="route_sn" end="10000.00" vehsPerHour="260"/>
+    <flow id="flow_sw_0" begin="0.00" departLane="best" departPos="base" color="green" route="route_sw" end="10000.00" vehsPerHour="50"/>
+    <flow id="flow_en_0" begin="0.00" departLane="best" departPos="base" color="blue" route="route_en" end="10000.00" vehsPerHour="180"/>
+    <flow id="flow_es_0" begin="0.00" departLane="best" departPos="base" color="blue" route="route_es" end="10000.00" vehsPerHour="50"/>
+    <flow id="flow_ew_0" begin="0.00" departLane="best" departPos="base" color="blue" route="route_ew" end="10000.00" vehsPerHour="260"/>
+    <flow id="flow_we_0" begin="0.00" departLane="best" departPos="base" route="route_we" end="10000.00" vehsPerHour="260"/>
+    <flow id="flow_wn_0" begin="0.00" departLane="best" departPos="base" route="route_wn" end="10000.00" vehsPerHour="50"/>
+    <flow id="flow_ws_0" begin="0.00" departLane="best" departPos="base" route="route_ws" end="10000.00" vehsPerHour="180"/>
 	
 	<!-- S -->
     <flow id="flow_ne_1" begin="10000.00" departLane="best" departPos="base" color="white" route="route_ne" end="20000.00" vehsPerHour="30"/>
@@ -39,9 +39,9 @@
     <flow id="flow_se_1" begin="10000.00" departLane="best" departPos="base" color="green" route="route_se" end="20000.00" vehsPerHour="160"/>
     <flow id="flow_sn_1" begin="10000.00" departLane="best" departPos="base" color="green" route="route_sn" end="20000.00" vehsPerHour="220"/>
     <flow id="flow_sw_1" begin="10000.00" departLane="best" departPos="base" color="green" route="route_sw" end="20000.00" vehsPerHour="30"/>
-	<flow id="flow_en_1" begin="10000.00" departLane="best" departPos="base" color="blue" route="route_en" end="20000.00" vehsPerHour="400"/>
-    <flow id="flow_es_1" begin="10000.00" departLane="best" departPos="base" color="blue" route="route_es" end="20000.00" vehsPerHour="100"/>
-    <flow id="flow_ew_1" begin="10000.00" departLane="best" departPos="base" color="blue" route="route_ew" end="20000.00" vehsPerHour="800"/>
+	<flow id="flow_en_1" begin="10000.00" departLane="best" departPos="base" color="blue" route="route_en" end="20000.00" vehsPerHour="500"/>
+    <flow id="flow_es_1" begin="10000.00" departLane="best" departPos="base" color="blue" route="route_es" end="20000.00" vehsPerHour="50"/>
+    <flow id="flow_ew_1" begin="10000.00" departLane="best" departPos="base" color="blue" route="route_ew" end="20000.00" vehsPerHour="900"/>
     <flow id="flow_we_1" begin="10000.00" departLane="best" departPos="base" route="route_we" end="20000.00" vehsPerHour="220"/>
     <flow id="flow_wn_1" begin="10000.00" departLane="best" departPos="base" route="route_wn" end="20000.00" vehsPerHour="30"/>
     <flow id="flow_ws_1" begin="10000.00" departLane="best" departPos="base" route="route_ws" end="20000.00" vehsPerHour="160"/>
@@ -50,9 +50,9 @@
     <flow id="flow_ne_2" begin="20000.00" departLane="best" departPos="base" color="white" route="route_ne" end="30000.00" vehsPerHour="30"/>
     <flow id="flow_ns_2" begin="20000.00" departLane="best" departPos="base" color="white" route="route_ns" end="30000.00" vehsPerHour="220"/>
     <flow id="flow_nw_2" begin="20000.00" departLane="best" departPos="base" color="white" route="route_nw" end="30000.00" vehsPerHour="160"/>
-    <flow id="flow_se_2" begin="20000.00" departLane="best" departPos="base" color="green" route="route_se" end="30000.00" vehsPerHour="400"/>
-    <flow id="flow_sn_2" begin="20000.00" departLane="best" departPos="base" color="green" route="route_sn" end="30000.00" vehsPerHour="800"/>
-    <flow id="flow_sw_2" begin="20000.00" departLane="best" departPos="base" color="green" route="route_sw" end="30000.00" vehsPerHour="100"/>
+    <flow id="flow_se_2" begin="20000.00" departLane="best" departPos="base" color="green" route="route_se" end="30000.00" vehsPerHour="500"/>
+    <flow id="flow_sn_2" begin="20000.00" departLane="best" departPos="base" color="green" route="route_sn" end="30000.00" vehsPerHour="900"/>
+    <flow id="flow_sw_2" begin="20000.00" departLane="best" departPos="base" color="green" route="route_sw" end="30000.00" vehsPerHour="50"/>
 	<flow id="flow_en_2" begin="20000.00" departLane="best" departPos="base" color="blue" route="route_en" end="30000.00" vehsPerHour="160"/>
     <flow id="flow_es_2" begin="20000.00" departLane="best" departPos="base" color="blue" route="route_es" end="30000.00" vehsPerHour="30"/>
     <flow id="flow_ew_2" begin="20000.00" departLane="best" departPos="base" color="blue" route="route_ew" end="30000.00" vehsPerHour="220"/>
@@ -70,9 +70,9 @@
     <flow id="flow_en_3" begin="30000.00" departLane="best" departPos="base" color="blue" route="route_en" end="40000.00" vehsPerHour="160"/>
     <flow id="flow_es_3" begin="30000.00" departLane="best" departPos="base" color="blue" route="route_es" end="40000.00" vehsPerHour="30"/>
     <flow id="flow_ew_3" begin="30000.00" departLane="best" departPos="base" color="blue" route="route_ew" end="40000.00" vehsPerHour="220"/>
-    <flow id="flow_we_3" begin="30000.00" departLane="best" departPos="base" route="route_we" end="40000.00" vehsPerHour="800"/>
-    <flow id="flow_wn_3" begin="30000.00" departLane="best" departPos="base" route="route_wn" end="40000.00" vehsPerHour="100"/>
-    <flow id="flow_ws_3" begin="30000.00" departLane="best" departPos="base" route="route_ws" end="40000.00" vehsPerHour="400"/>
+    <flow id="flow_we_3" begin="30000.00" departLane="best" departPos="base" route="route_we" end="40000.00" vehsPerHour="900"/>
+    <flow id="flow_wn_3" begin="30000.00" departLane="best" departPos="base" route="route_wn" end="40000.00" vehsPerHour="50"/>
+    <flow id="flow_ws_3" begin="30000.00" departLane="best" departPos="base" route="route_ws" end="40000.00" vehsPerHour="500"/>
 	
 	<!-- N + S -->
     <flow id="flow_ne_4" begin="40000.00" departLane="best" departPos="base" color="white" route="route_ne" end="50000.00" vehsPerHour="30"/>

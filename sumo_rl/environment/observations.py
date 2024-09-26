@@ -111,7 +111,8 @@ class TwoWayObservationFunction(ObservationFunction):
                 10000,10000,10000,10000,10000,10000,10000,10000
             ]),
         )
-    
+# Komarov add - стан системи (працює як для перехрестя з одною смугою руху так і для перехрестя з 2-ма смугами руху)
+#   , до цього використовував SingleObservationFunction або TwoWayObservationFunction
 class DynamicObservationFunction(ObservationFunction):
     max_lines = 8
 

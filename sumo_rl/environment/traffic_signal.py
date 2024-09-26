@@ -208,6 +208,7 @@ class TrafficSignal:
         self.last_measure = ts_wait
         return reward
     
+    # Komarov add - наша функція винагороди
     def _khm_reward(self):
         veh_reward = self._khm_count_reward()
         waiting_reward = self._khm_waiting_reward()
@@ -217,8 +218,8 @@ class TrafficSignal:
         return reward
 
     def _khm_traffic_light_reward(self):
+        # На скільки кожен з світлофорів порушив задані для нього рамки (від’ємна величина, від 0 до -1 для кожного світлофору)
         phase1 = 40
-        phase2 = 30
 
         k = self.calc_optimal_k(5 * 5) # 5 delta (when worth on 10%) * 5 (random value)
         
@@ -259,8 +260,8 @@ class TrafficSignal:
         reward = (1 - math.exp(-k * uniq_count))
         return -reward
 
-    def _khm_waiting_reward_single(self):
-        # Скільки машин очікує проїзду більше чим 15 сек (від’ємна величина, від 0 до -1)
+    def waiting_reward_single(self):
+        # not used
         k = self.calc_optimal_k(8*5)
         
         veh_waiting_count = 0
@@ -275,14 +276,6 @@ class TrafficSignal:
     def calc_optimal_k(self, x: int):
         k = math.log(2) / x
         return k
-
-    def _observation_fn_default(self):
-        phase_id = [1 if self.green_phase == i else 0 for i in range(self.num_green_phases)]  # one-hot encoding
-        min_green = [0 if self.time_since_last_phase_change < self.min_green + self.yellow_time else 1]
-        density = self.get_lanes_density()
-        queue = self.get_lanes_queue()
-        observation = np.array(phase_id + min_green + density + queue + queue, dtype=np.float32)
-        return observation
 
     def get_accumulated_waiting_time_per_lane(self) -> List[float]:
         """Returns the accumulated waiting time per lane.

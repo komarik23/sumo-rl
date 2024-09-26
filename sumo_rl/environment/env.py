@@ -301,6 +301,7 @@ class SumoEnvironment(gym.Env):
         """Return current simulation second on SUMO."""
         return self.sumo.simulation.getTime()
 
+    # Komarov add - глобальні змінні для підрахунку даних для результатів і для ревард функції
     WAITING_STEP_VEHS = []
     PASSED_INTERSECTION_VEHS = []
     CO2_STEP = []
@@ -333,14 +334,17 @@ class SumoEnvironment(gym.Env):
             return observations[self.ts_ids[0]], rewards[self.ts_ids[0]], terminated, truncated, info
         else:
             return observations, rewards, terminated, dones, info
-
+    
+    # Komarov add - викиди CO2 на кожному кроці
     def calc_co2(self):
         total_vehs_co2 = [self.sumo.vehicle.getCO2Emission(veh_id) for veh_id in self.sumo.vehicle.getIDList()]
         self.CO2_STEP.append({"step": self.sim_step, "co2": sum(total_vehs_co2)})
         
+        # в памяті тримаємо лише останніх 15 кроків (потрібно для файлу з результатами)
         if (len(self.CO2_STEP) > 15):
             self.CO2_STEP.pop(0)
 
+    # Komarov add - кількість машин, проїхали перехрестя
     def calc_vehs_passed_intersection(self):
         total_vehs_passed_intersection = []
         for out_lane in self.traffic_signals[self.ts_ids[0]].out_lanes:
@@ -349,9 +353,11 @@ class SumoEnvironment(gym.Env):
 
         self.PASSED_INTERSECTION_VEHS.append({"step": self.sim_step, "vehIDs": list(set(total_vehs_passed_intersection))})
 
+        # в памяті тримаємо 600 кроків (секунд) = 10 хв
         if (len(self.PASSED_INTERSECTION_VEHS) > (600)):
             self.PASSED_INTERSECTION_VEHS.pop(0)
-
+    
+    # Komarov add - кількість машин, що очікують більше ніж 15 секунд
     def calc_waiting_vehs(self):
         total_lane_veh_waiting = []
         for lane in self.traffic_signals[self.ts_ids[0]].lanes:
@@ -361,6 +367,7 @@ class SumoEnvironment(gym.Env):
 
         self.WAITING_STEP_VEHS.append({"step": self.sim_step, "vehIDs": list(set(total_lane_veh_waiting))})
 
+         # в памяті тримаємо 600 кроків (секунд) = 10 хв
         if (len(self.WAITING_STEP_VEHS) > (600)):
             self.WAITING_STEP_VEHS.pop(0)
 
@@ -409,6 +416,7 @@ class SumoEnvironment(gym.Env):
         return {ts: self.observations[ts].copy() for ts in self.observations.keys() if self.traffic_signals[ts].time_to_act or self.fixed_ts}
 
     def _compute_rewards(self):
+        # перші 600 секунд симуляції не виставляємо оцінку, а лише накоплюємо дані
         if self.sim_step < 600 or self.sim_step % 15 == 0:
             self.rewards.update(
                 {ts: self.traffic_signals[ts].compute_reward() for ts in self.ts_ids if self.traffic_signals[ts].time_to_act or self.fixed_ts}
@@ -441,11 +449,13 @@ class SumoEnvironment(gym.Env):
 
     def _sumo_step(self):
         self.sumo.simulationStep()
+        # Komarov add - на кожному кроці підраховуємо дані потрібні для результатів та функції офінки
         self.calc_co2()
         self.calc_vehs_passed_intersection()
         self.calc_waiting_vehs()
 
     def _get_system_info(self):
+        # Komarov add - формуємо результати (будуть формуватись кожних 15 секунд (delta_time))
         vehicles = self.sumo.vehicle.getIDList()
         waiting_times = [self.sumo.vehicle.getWaitingTime(vehicle) for vehicle in vehicles]
         waiting_time = sum(waiting_times)

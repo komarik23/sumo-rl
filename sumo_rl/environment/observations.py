@@ -152,3 +152,73 @@ class DynamicObservationFunction(ObservationFunction):
                 10000,10000,10000,10000,10000,10000,10000,10000
             ]),
         )
+
+class CO2DynamicObservationFunction(ObservationFunction):
+    max_lines = 8
+
+    def __init__(self, ts: TrafficSignal):
+        super().__init__(ts)
+
+    def __call__(self) -> np.ndarray:
+        phase_id = [1 if self.ts.green_phase == i else 0 for i in range(self.ts.num_green_phases)]  # one-hot encoding
+        time_since_last_phase_change = [self.ts.time_since_last_phase_change]
+
+        veh_appeared = self.ts.get_lanes_veh_appeared() # Скільки машин з’явилось по кожній смузі, з попереднього проміжку часу
+        if len(veh_appeared) < self.max_lines:
+            veh_appeared.extend([0] * (self.max_lines - len(veh_appeared)))
+
+        queue = self.ts.get_lanes_queue() # Скільки машин очікує на кожній смузі
+        if len(queue) < self.max_lines:
+            queue.extend([0] * (self.max_lines - len(queue)))
+
+        waiting_time = self.ts.get_lanes_waiting_time() # Сумарний час очікування всіх машин на кожній смузі
+        if len(waiting_time) < self.max_lines:
+            waiting_time.extend([0] * (self.max_lines - len(waiting_time)))
+
+        angle = [-10, 0, 20, 0]
+        if len(self.ts.lanes) == 4:
+            angle = angle + [-10, 0, 20, 0]
+        else:
+            angle = angle + angle
+
+        co2 = self.ts.get_lanes_co2()
+        if len(co2) < self.max_lines:
+            co2.extend([0] * (self.max_lines - len(waiting_time)))
+
+        veh_type = self.ts.get_lanes_veh_type()
+        if len(veh_type) < self.max_lines:
+            for i in (self.max_lines - len(veh_type)):
+                veh_type.append([0,0,0])
+
+        veh_type_line = []
+        for line in veh_type:
+            for type in line:
+                veh_type_line += [type]
+
+        observation = np.array(phase_id + time_since_last_phase_change + veh_appeared + queue + waiting_time + angle + co2 + veh_type_line, dtype=np.float32)
+        return observation
+    
+    def observation_space(self) -> spaces.Box:
+        """Return the observation space. !!! absolute values - !!!"""
+        return spaces.Box(
+            low=np.array([
+                0,0,
+                0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,
+                -60,-60,-60,-60,-60,-60,-60,-60,
+                0,0,0,0,0,0,0,0,
+                0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0
+            ]),
+            high=np.array([
+                1,1,
+                600,
+                100,100,100,100,100,100,100,100,
+                25,25,25,25,25,25,25,25,
+                10000,10000,10000,10000,10000,10000,10000,10000,
+                60,60,60,60,60,60,60,60,
+                60,60,60,60,60,60,60,60,
+                25,25,25, 25,25,25, 25,25,25, 25,25,25, 25,25,25, 25,25,25, 25,25,25, 25,25,25
+            ]),
+        )

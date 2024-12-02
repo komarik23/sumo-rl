@@ -216,6 +216,16 @@ class TrafficSignal:
 
         reward = veh_reward + waiting_reward + traffic_light_reward
         return reward
+    
+    # Komarov add - наша функція винагороди з CO2
+    def _khm_with_co2_reward(self):
+        veh_reward = self._khm_count_reward()
+        waiting_reward = self._khm_waiting_reward()
+        traffic_light_reward = self._khm_traffic_light_reward()
+        co2_reward = self._khm_co2_reward()
+
+        reward = veh_reward + waiting_reward + traffic_light_reward + co2_reward
+        return reward
 
     def _khm_traffic_light_reward(self):
         # На скільки кожен з світлофорів порушив задані для нього рамки (від’ємна величина, від 0 до -1 для кожного світлофору)
@@ -259,18 +269,13 @@ class TrafficSignal:
 
         reward = (1 - math.exp(-k * uniq_count))
         return -reward
+    
+    def _khm_co2_reward(self):
+        # викиди CO2 (від’ємна величина, від 0 до -1) за 600с
+        k = self.calc_optimal_k(50 * 200 * 10) # (50 vehs * 200 gram) per minute * 10 minutes
 
-    def waiting_reward_single(self):
-        # not used
-        k = self.calc_optimal_k(8*5)
-        
-        veh_waiting_count = 0
-        for lane in self.lanes:
-            lane_veh_ids = self.sumo.lane.getLastStepVehicleIDs(lane)
-            lane_veh_waiting_count = sum(1 for veh_id in lane_veh_ids if self.sumo.vehicle.getWaitingTime(veh_id) > 15)
-            veh_waiting_count += lane_veh_waiting_count
-
-        reward = (1 - math.exp(-k * veh_waiting_count))
+        co2 = sum(step["co2"] / 1000 for step in self.env.CO2_PERIOD)
+        reward = (1 - math.exp(-k * co2))
         return -reward
 
     def calc_optimal_k(self, x: int):
@@ -387,6 +392,36 @@ class TrafficSignal:
         self.PREV_VEH_IDS += current_veh_ids
         return new_cars_per_lane
 
+        def get_lanes_co2(self) -> List[int]:
+            # Викиди CO2 на кожній смузі в грамах/с
+            lanes_co2 = [
+                (int)(self.sumo.lane.getCO2Emission(lane) / 1000)
+                for lane in self.lanes
+            ]
+            
+            return [co2 for co2 in lanes_co2]
+
+    def get_lanes_veh_type(self) -> List[List[int]]:
+        lane_vehicles = []
+        for lane in self.lanes:
+            veh_type_eu4 = 0
+            veh_type_eu2 = 0
+            veh_type_eu0 = 0
+
+            current_lane_ids = self.sumo.lane.getLastStepVehicleIDs(lane)
+
+            for vehID in current_lane_ids:
+                vehicle_type = self.sumo.vehicle.getTypeID(vehID)
+                if vehicle_type == 'DEFAULT_VEHTYPE':
+                    veh_type_eu4 += 1
+                elif vehicle_type == 'type_eu2':
+                    veh_type_eu2 += 1
+                elif vehicle_type == 'type_eu0':
+                    veh_type_eu0 +=1
+
+            lane_vehicles.append([veh_type_eu4, veh_type_eu2, veh_type_eu0])
+
+        return lane_vehicles
 
     def get_total_queued(self) -> int:
         """Returns the total number of vehicles halting in the intersection."""
@@ -415,5 +450,6 @@ class TrafficSignal:
         "average-speed": _average_speed_reward,
         "queue": _queue_reward,
         "pressure": _pressure_reward,
-        "kmh": _khm_reward
+        "kmh": _khm_reward,
+        "khm-co2": _khm_with_co2_reward
     }

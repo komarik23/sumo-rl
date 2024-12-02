@@ -244,7 +244,9 @@ class SumoEnvironment(gym.Env):
 
         self.WAITING_STEP_VEHS = []
         self.PASSED_INTERSECTION_VEHS = []
+        self.CO2_PERIOD = []
         self.CO2_STEP = []
+        self.CO2_STEP_LINES = []
         self.TOTAL_WAITING_TIME = 0
         self.TOTAL_CO2 = 0
 
@@ -304,7 +306,9 @@ class SumoEnvironment(gym.Env):
     # Komarov add - глобальні змінні для підрахунку даних для результатів і для ревард функції
     WAITING_STEP_VEHS = []
     PASSED_INTERSECTION_VEHS = []
+    CO2_PERIOD = []
     CO2_STEP = []
+    CO2_STEP_LINES = []
     TOTAL_CO2 = 0
     TOTAL_WAITING_TIME = 0
 
@@ -339,10 +343,18 @@ class SumoEnvironment(gym.Env):
     def calc_co2(self):
         total_vehs_co2 = [self.sumo.vehicle.getCO2Emission(veh_id) for veh_id in self.sumo.vehicle.getIDList()]
         self.CO2_STEP.append({"step": self.sim_step, "co2": sum(total_vehs_co2)})
+        self.CO2_PERIOD.append({"step": self.sim_step, "co2": sum(total_vehs_co2)})
+        self.CO2_STEP_LINES.append({"step": self.sim_step, "co2": [
+            (int)(self.sumo.lane.getCO2Emission(lane) / 1000)
+            for lane in self.traffic_signals[self.ts_ids[0]].lanes
+        ]})
         
-        # в памяті тримаємо лише останніх 15 кроків (потрібно для файлу з результатами)
         if (len(self.CO2_STEP) > 15):
             self.CO2_STEP.pop(0)
+            self.CO2_STEP_LINES.pop(0)
+
+        if (len(self.CO2_PERIOD) > 600):
+            self.CO2_PERIOD.pop(0)
 
     # Komarov add - кількість машин, проїхали перехрестя
     def calc_vehs_passed_intersection(self):
@@ -353,7 +365,7 @@ class SumoEnvironment(gym.Env):
 
         self.PASSED_INTERSECTION_VEHS.append({"step": self.sim_step, "vehIDs": list(set(total_vehs_passed_intersection))})
 
-        # в памяті тримаємо 600 кроків (секунд) = 10 хв
+         # в памяті тримаємо 600 кроків (секунд) = 10 хв
         if (len(self.PASSED_INTERSECTION_VEHS) > (600)):
             self.PASSED_INTERSECTION_VEHS.pop(0)
     
